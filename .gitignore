@@ -1,0 +1,25 @@
+# Datasets and upstream checkouts are obtained from their original sources.
+/datasets/
+/SAFMN/
+/CAMixerSR/
+/BasicSR/
+
+# Environments, caches, archives, and generated model files.
+/.venv/
+/.venv-*/
+__pycache__/
+*.py[cod]
+*.zip
+*.tar
+*.tar.gz
+*.part
+*.tmp
+*.pth
+*.state
+*.png
+.DS_Store
+
+# Experiment output stays outside version control unless curated in results/.
+/experiments/
+/training_states/
+/visualization/
