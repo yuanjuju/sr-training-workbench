@@ -1,6 +1,7 @@
 model,checkpoint,weight_key,dataset,channel,crop_border,psnr_db,ssim,notes
 SAFMN,author_pretrained,params,DIV2K_val100,RGB,4,28.9615,,author weight evaluated locally
 SAFMN,scratch_5000,params_ema,DIV2K_val100,RGB,4,28.1530,,training validation
+SAFMN,scratch_5000_nofft,params_ema,DIV2K_val100,RGB,4,27.7030,,training validation; FFT loss disabled
 SAFMN,scratch_10000,params_ema,DIV2K_val100,RGB,4,28.6253,,training validation
 SAFMN,scratch_15000,params_ema,DIV2K_val100,RGB,4,28.7050,,training validation
 SAFMN,scratch_20000,params_ema,DIV2K_val100,RGB,4,28.7439,,training validation

@@ -17,7 +17,15 @@ The cloud run used a project-local `.venv`, one RTX 4090, and the SAFMN reposito
 | 30-step smoke run | Verify data, optimizer, validation, and save path | Checkpoint/state saved; not a quality result |
 | 100-step data-loader checks | Compare full-image decoding and prepared crop loading | 1.021 versus 0.460 seconds/step in these short runs |
 | 5k training stage | First interpretable checkpoint | DIV2K val100 RGB PSNR 28.1530 dB (EMA) |
+| 5k without FFT loss | Single loss ablation against the 5k stage | DIV2K val100 RGB PSNR 27.7030 dB (EMA) |
 | Resume from `5000.state` | Continue the same experiment | 30k EMA PSNR 28.7915 dB; stopped after checkpoint and validation |
+
+The [no-FFT configuration](../configs/SAFMN_train_DF2K_x4_sub_nofft_5000.yml) differs from the first 5k configuration only in the experiment name and disabling `fft_opt`; the random seed, data, batch size, network, optimizer, and 500k-period learning-rate schedule match. Both runs stopped at 5k and used EMA validation on DIV2K val100 with RGB PSNR and a four-pixel border crop. The [no-FFT log](../results/logs/nofft5000.stdout.log) reports 27.7030 dB at iteration 5000, **0.4500 dB below** the 28.1530 dB FFT-loss run. Its process exited normally after training and final validation. The `net_g_5000.pth` checkpoint loaded with both `params` and `params_ema`; `5000.state` loaded with iteration 5000. This is one short run per setting, not evidence for a full 500k-step conclusion or a statistically reliable effect.
+
+| No-FFT 5k cloud file (kept outside this repository) | SHA-256 |
+| --- | --- |
+| `net_g_5000.pth` | `3afcd792ce1dbe315237bf7cdbc478c04cb5a9f96b753874253e47dfa7f7bcb1` |
+| `5000.state` | `c0c36c735f5512c9dadfaf56f36b7ed03486c290c3c78bd479a0df911186ea7b` |
 
 The resume log is [`full500k_resume.stdout.log`](../results/logs/full500k_resume.stdout.log). The 30k checkpoint held both `params` and `params_ema`. Its optimizer state reported iteration 30000. The files were readable in PyTorch, and local/cloud SHA-256 values matched:
 

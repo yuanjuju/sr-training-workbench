@@ -20,7 +20,8 @@ This repository contains the experiment tooling and measurements I developed whi
 | Prepared data | 139,995 aligned HR/LR crop pairs |
 | Validation | DIV2K validation set, 100 images; RGB PSNR, border crop 4 |
 | Additional check | Set5 mirror, 5 images; Y-channel PSNR/SSIM, border crop 4 |
-| Training | SAFMN, batch 64, 256-pixel HR random crops, L1 + 0.05 FFT loss |
+| Main training run | SAFMN, batch 64, 256-pixel HR random crops, L1 + 0.05 FFT loss |
+| Loss ablation | Same 5k setup and seed, with FFT loss disabled (`fft_opt: ~`) |
 | Hardware | One RTX 4090 24 GB; Python 3.10; PyTorch 2.1.1+cu121 |
 
 ### Measured results
@@ -29,6 +30,7 @@ This repository contains the experiment tooling and measurements I developed whi
 | --- | --- | ---: | ---: |
 | SAFMN author's pretrained ×4 | `params` | 28.9615 dB | 32.1836 dB / 0.8948 |
 | SAFMN trained from scratch, 5k | `params_ema` on DIV2K; `params` on Set5 | 28.1530 dB | 31.4363 dB / 0.8828 |
+| SAFMN trained from scratch, 5k without FFT loss | `params_ema` | 27.7030 dB | — |
 | SAFMN trained from scratch, 20k | `params_ema` | 28.7439 dB | — |
 | SAFMN trained from scratch, 30k | `params_ema` | 28.7915 dB | — |
 | SAFMN trained from scratch, 30k | `params` | 28.6901 dB | 31.7874 dB / 0.8895 |
@@ -37,6 +39,8 @@ This repository contains the experiment tooling and measurements I developed whi
 The SAFMN run stopped at 30k because its EMA validation PSNR improved by only 0.0476 dB from 20k to 30k and met the preselected short-run stopping rule. The ordinary 30k weights remain 0.2714 dB below the author's pretrained weights on the same DIV2K protocol. **This is a controlled short training experiment, not a claim to have completed the authors' 500k-step training or matched their paper results.** The 500k learning-rate schedule was retained, so the 30k result should not be interpreted as a fully converged short-schedule model.
 
 An [independent direct test](results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) that explicitly loaded `params_ema` reproduced the 30k training validation score of 28.7915 dB on the same 100-image protocol.
+
+In the single 5k loss ablation, disabling the 0.05-weight FFT loss gave **0.4500 dB lower** DIV2K val100 RGB PSNR than the otherwise matched 5k run. See the [no-FFT training log](results/logs/nofft5000.stdout.log) and [experiment notes](docs/experiment-notes.md). This one short run does not establish the effect after full 500k-step training.
 
 The Set5 files came from a third-party mirror and include only five test images. Set5 Y-channel scores and DIV2K RGB scores are different protocols; compare values only within their own column. See [all recorded metrics](results/metrics.csv) and the [experiment notes](docs/experiment-notes.md).
 
