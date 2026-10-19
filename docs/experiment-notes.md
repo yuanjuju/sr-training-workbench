@@ -34,4 +34,6 @@ SAFMN's training validation calls `SRModel.test()`, which selects `net_g_ema` wh
 
 The 30k Set5 result for ordinary weights was 31.7874 dB PSNR / 0.8895 SSIM on the Y channel. The author's pretrained SAFMN weights scored 32.1836 / 0.8948 with the same five-image mirror and protocol. This small dataset does not establish general performance. CAMixerSR's pretrained Set5 test is a separate model check and does not show that its architecture was trained in this repository.
 
+For an independent retest of the 30k EMA weights, use [`SAFMN_DIV2K_val100_30000_ema.yml`](../configs/SAFMN_DIV2K_val100_30000_ema.yml). It differs from the ordinary-weight test configuration only in the experiment name and `path.param_key_g: params_ema`. BasicSR's direct test defaults to `params` when this key is absent. The training-loop EMA result of 28.7915 dB is measured; a direct EMA retest with this new configuration has not yet been run. Adjust the cloud paths before using it on another machine.
+
 Stopping at 30k was a time-budget decision informed by the validation trend. The original scheduler still had a 500k period and the full author training target was not reached.
