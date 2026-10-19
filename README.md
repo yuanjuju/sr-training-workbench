@@ -36,6 +36,8 @@ This repository contains the experiment tooling and measurements I developed whi
 
 The SAFMN run stopped at 30k because its EMA validation PSNR improved by only 0.0476 dB from 20k to 30k and met the preselected short-run stopping rule. The ordinary 30k weights remain 0.2714 dB below the author's pretrained weights on the same DIV2K protocol. **This is a controlled short training experiment, not a claim to have completed the authors' 500k-step training or matched their paper results.** The 500k learning-rate schedule was retained, so the 30k result should not be interpreted as a fully converged short-schedule model.
 
+An [independent direct test](results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) that explicitly loaded `params_ema` reproduced the 30k training validation score of 28.7915 dB on the same 100-image protocol.
+
 The Set5 files came from a third-party mirror and include only five test images. Set5 Y-channel scores and DIV2K RGB scores are different protocols; compare values only within their own column. See [all recorded metrics](results/metrics.csv) and the [experiment notes](docs/experiment-notes.md).
 
 ## Repository layout

@@ -6,6 +6,7 @@ SAFMN,scratch_15000,params_ema,DIV2K_val100,RGB,4,28.7050,,training validation
 SAFMN,scratch_20000,params_ema,DIV2K_val100,RGB,4,28.7439,,training validation
 SAFMN,scratch_25000,params_ema,DIV2K_val100,RGB,4,28.7723,,training validation
 SAFMN,scratch_30000,params_ema,DIV2K_val100,RGB,4,28.7915,,training validation
+SAFMN,scratch_30000,params_ema,DIV2K_val100,RGB,4,28.7915,,independent direct test
 SAFMN,scratch_10000,params,DIV2K_val100,RGB,4,28.5927,,direct test
 SAFMN,scratch_30000,params,DIV2K_val100,RGB,4,28.6901,,direct test
 SAFMN,author_pretrained,params,Set5,Y,4,32.1836,0.8948,third-party Set5 mirror
