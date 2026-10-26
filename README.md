@@ -1,112 +1,87 @@
 # SR Training Workbench
 
-**Image super-resolution experiments built around data preparation, cloud training, and checkpoint analysis.**
+面向 ×4 图像超分辨率的数据处理、云端训练控制与结果分析工具。
 
-This repository contains the experiment tooling and measurements I developed while studying ×4 single-image super-resolution. I built the dataset checks, resumable download and crop workflow, staged training setup, stop guard, and metric comparisons. The SAFMN and CAMixerSR network implementations belong to their original authors; their source code and pretrained models are linked below, not copied here.
+本项目整理我完成的数据检查、图块准备、训练管理、检查点核验、评估和可视化工作。SAFMN 与 CAMixerSR 的网络实现来自原作者，通过各自的 BasicSR 训练流程使用；项目贡献与第三方来源分别说明。
 
-## What I built
+## 1. 项目内容
 
-- Resumable, range-based downloads of the DIV2K and Flickr2K archives, with size checks and SHA-256 records.
-- HR/LR pair validation, ×4 dimension checks, a combined DF2K index, resumable subimage preparation, and a checked BasicSR metadata index.
-- Cloud training setups with saved checkpoints every 5,000 steps for SAFMN and every 1,000 steps for CAMixerSR, plus a SAFMN stop guard that checks both the checkpoint and validation score before stopping.
-- Evaluation records that keep dataset, color channel, crop border, and checkpoint key (`params` versus `params_ema`) explicit.
-- A sequential FFT/no-FFT experiment manager with shared initialization, checkpoint verification, paired evaluation, and result plots.
-- Local CPU exercises for a parameter update and real-image inference, with curated visual examples.
+| 模块 | 我完成的内容 | 入口 |
+| --- | --- | --- |
+| 数据准备 | 续传下载、HR/LR 配对检查、对齐裁图、BasicSR 元数据索引 | [数据工具](scripts/README.md#1-数据准备data) |
+| 云端工作流 | 项目独立环境、真实批次预检、顺序训练管理、按检查点停止 | [工作流工具](scripts/README.md) |
+| 配置管理 | 按模型及训练／测试用途整理实测 YAML | [配置索引](configs/README.md) |
+| 实验分析 | EMA 与普通参数区分、FFT 损失对照、统一口径评估 | [实验主题](studies/README.md) |
+| 结果证据 | 指标、原始日志、来源哈希、验收与对比图 | [结果索引](results/README.md) |
+| 本地学习 | 参数更新、网络尺寸、CPU 单图推理及 EMA 对比 | [学习指南](learning/README.md) |
 
-## Latest controlled experiment: FFT loss at 30k
+## 2. 目录结构
 
-Two fresh SAFMN ×4 runs used the same RTX 5090, environment, DF2K crops, batch 64, seed 10, and shared random initial weights. The only training difference was **L1 + 0.05 FFTLoss versus L1 alone**. Each run completed 30,000 updates, retaining the original 500k cosine schedule and EMA 0.999.
+```text
+studies/                  按研究问题组织的实验入口
+  pretrained-inference/   作者权重推理
+  safmn-training-4090/     早期 SAFMN 训练、续训与复测
+  camixersr-training-5090/ CAMixerSR 5k 短训
+  safmn-fft-paired-30k/    同环境 FFT／无 FFT 对照
+scripts/
+  data/                   下载、解压、配对、裁图、索引
+  environment/            项目环境准备
+  preflight/              真实批次预检
+  training/               队列与停止控制
+  evaluation/             指标与图像评估
+configs/
+  safmn/{train,test}/      SAFMN 配置
+  camixersr/{train,test}/  CAMixerSR 配置
+results/                  指标、原始证据和结果图
+learning/                 教学脚本与精选样例
+docs/                     详细报告与目录约定
+patches/                  上游兼容补丁
+third_party/              第三方许可
+```
 
-| Loss | DIV2K val100 RGB PSNR | Set5 RGB PSNR | Set5 Y PSNR / SSIM |
+每项实验按 **目标 → 配置与方法 → 结果 → 证据 → 限制** 阅读。后续新增材料和提交遵循 [内容组织约定](docs/repository-structure.md)。
+
+## 3. 实验主题
+
+| 实验 | 主要结果 | 范围 |
+| --- | --- | --- |
+| [作者权重推理](studies/pretrained-inference/README.md) | SAFMN / CAMixerSR Set5 Y PSNR 为 32.1836 / 32.5533 dB | 预训练加载与评估流程检查 |
+| [SAFMN 4090 训练](studies/safmn-training-4090/README.md) | 30k DIV2K EMA RGB PSNR 28.7915 dB | 从早期 5k 续训，按短训规则停止 |
+| [CAMixerSR 5090 短训](studies/camixersr-training-5090/README.md) | 5k DIV2K EMA RGB PSNR 27.5543 dB | 第二个 BasicSR 项目的单次短训 |
+| [SAFMN FFT 配对 30k](studies/safmn-fft-paired-30k/README.md) | FFT / 无 FFT 为 28.7956 / 28.7050 dB | 同环境、共同初值的单种子对照 |
+
+以上指标均裁边 4；Set5 Y 与 DIV2K RGB 是不同口径。不同实验的硬件、batch 和优化设置有差异，不能根据此表给网络作公平性能排名。完整标签见 [指标 CSV](results/metrics.csv)。
+
+## 4. 最新受控实验：FFT 损失的收益
+
+两组 SAFMN ×4 使用同一张 RTX 5090、相同 DF2K 图块、batch 64、seed 10 和共同随机初始化，各训练 30k。训练差异为 **L1 + 0.05 FFTLoss** 与 **仅 L1**；保留原 500k 余弦周期和 EMA 0.999。
+
+| 损失 | DIV2K val100 RGB PSNR | Set5 RGB PSNR | Set5 Y PSNR / SSIM |
 | --- | ---: | ---: | ---: |
 | L1 + 0.05 FFTLoss | **28.7956 dB** | **30.0542 dB** | **31.9488 dB / 0.891679** |
 | L1 | 28.7050 dB | 29.9539 dB | 31.8489 dB / 0.889826 |
 
-All values use `params_ema` and border crop 4. Set5 values are five-image means. The DIV2K advantage narrowed from **+0.4089 dB at 5k to +0.0906 dB at 30k**. This supports an FFT benefit in this single-seed short run; it does not establish convergence, multi-seed stability, or full-paper results.
+这里全部加载 `params_ema`，裁边 4；Set5 为五图算术均值。DIV2K 的差距由 5k 时的 **+0.4089 dB** 缩小到 30k 时的 **+0.0906 dB**。该结果支持本次短训中的 FFT 收益，不代表充分收敛、多种子稳定性或完整论文训练结论。
 
-![Matched FFT/no-FFT validation curves](results/safmn_fft_pair_30k/results/training_curve.png)
+![FFT 配对实验验证曲线](results/safmn_fft_pair_30k/results/training_curve.png)
 
-See the [complete experiment record](docs/SAFMN-FFT-paired-30k.md), [validation CSV](results/safmn_fft_pair_30k/results/training_metrics.csv), and [visual comparisons](results/safmn_fft_pair_30k/results/comparisons). All 12 checkpoint/state pairs passed readability, finite-value, iteration, and hash checks; the records are included, while binary weights remain outside Git.
+[实验入口](studies/safmn-fft-paired-30k/README.md) · [完整报告](docs/SAFMN-FFT-paired-30k.md) · [12 条定期验证](results/safmn_fft_pair_30k/results/training_metrics.csv) · [效果对比](results/safmn_fft_pair_30k/results/comparisons/)
 
-## Earlier training and pipeline checks
+## 5. 从哪里开始
 
-| Item | Setting |
-| --- | --- |
-| Task | Bicubic ×4 single-image super-resolution |
-| Training data | DF2K: 800 DIV2K + 2,650 Flickr2K HR/LR pairs |
-| Prepared data | 139,995 aligned HR/LR crop pairs |
-| Validation | DIV2K validation set, 100 images; RGB PSNR, border crop 4 |
-| Additional check | Set5 mirror, 5 images; Y-channel PSNR/SSIM, border crop 4 |
-| Main training run | SAFMN, batch 64, 256-pixel HR random crops, L1 + 0.05 FFT loss |
-| Earlier loss ablation | Same 5k setup and seed, with FFT loss disabled (`fft_opt: ~`); distinct from the new 5090 paired experiment above |
-| SAFMN hardware/environment | One RTX 4090 24 GB; Python 3.10; PyTorch 2.1.1+cu121 |
-| CAMixerSR short training | 5,000 steps from scratch; batch 16; 256-pixel HR random crops; L1 + routing constraint; seed 10; EMA 0.999 |
-| CAMixerSR optimization | AdamW; learning rate 0.0005; weight decay 0.0001; betas (0.9, 0.99) |
-| CAMixerSR hardware/environment | One RTX 5090 32 GB; project-local environment; PyTorch 2.7.1+cu128; BasicSR 1.4.2 |
+- **了解做了什么**：先看 [实验主题](studies/README.md)，再沿每项实验的证据链接核对。
+- **学习思路和框架**：从 [学习指南](learning/README.md) 和 [精选推理图](learning/examples/README.md) 开始，已有图片无需云服务器。
+- **准备数据和运行工具**：按 [脚本索引](scripts/README.md) 准备上游 checkout、数据及项目独立环境，再选 [配置](configs/README.md)。
+- **查详细协议**：进入 [文档导航](docs/README.md) 或 [结果索引](results/README.md)。
 
-### Earlier measured results
+配置保留原云端 `/root/fsas/sr-repro` 路径；仓库功能目录与云端 suite 部署目录分别说明。环境脚本依赖已有项目布局，使用前按工具索引核对条件。历史归档保留当时的文件与来源哈希。
 
-| Model/checkpoint | Weights used | DIV2K val100 RGB PSNR | Set5 Y PSNR / SSIM |
-| --- | --- | ---: | ---: |
-| SAFMN author's pretrained ×4 | `params` | 28.9615 dB | 32.1836 dB / 0.8948 |
-| SAFMN trained from scratch, 5k | `params_ema` on DIV2K; `params` on Set5 | 28.1530 dB | 31.4363 dB / 0.8828 |
-| SAFMN trained from scratch, 5k without FFT loss | `params_ema` | 27.7030 dB | — |
-| SAFMN trained from scratch, 20k | `params_ema` | 28.7439 dB | — |
-| SAFMN trained from scratch, 30k | `params_ema` | 28.7915 dB | — |
-| SAFMN trained from scratch, 30k | `params` | 28.6901 dB | 31.7874 dB / 0.8895 |
-| CAMixerSR author's pretrained ×4 | `params_ema` | — | 32.5533 dB / 0.8997 |
-| CAMixerSR trained from scratch, 5k | `params_ema` | 27.5543 dB | — |
+## 6. 模型、框架与数据来源
 
-The CAMixerSR run completed 5k without reported errors. EMA validation at 1k/2k/3k/4k/5k returned **17.3931 / 22.1289 / 25.4935 / 26.8954 / 27.5543 dB**. The saved 5k model and training state loaded successfully; the state records iteration 5000, the model contains finite `params` and `params_ema`, the training process exited, and the GPU compute-process list is empty.
+- [SAFMN](https://github.com/sunny2109/SAFMN)：上游提交 `1a412066e927da640bc7e2a53ea60f9ffc134241`，网络与其 BasicSR 训练代码。
+- [CAMixerSR](https://github.com/icandle/CAMixerSR)：上游提交 `d690b12bb2a0a185dc0049538b377d569f520497`，网络及 `CAModel` 扩展。
+- [BasicSR](https://github.com/XPixelGroup/BasicSR)：参考提交 `8d56e3a045f9fb3e1d8872f92ee4a4f07f886b0a`；具体运行所用代码与版本见各实验环境记录。
+- [DIV2K](https://data.vision.ee.ethz.ch/cvl/DIV2K/) 与 [Flickr2K](https://cv.snu.ac.kr/research/EDSR/)：训练数据来源；DF2K 准备得到 139,995 对图块。
+- [Set5 镜像](https://huggingface.co/datasets/eugenesiow/Set5)：五图评估和精选效果图的来源。
 
-The training entry point calls validation once more after the loop; that additional validation returned 27.5540 dB without further training. Both values are retained separately, with 27.5543 dB as the 5k checkpoint validation result. The 0.0003 dB difference has not been strictly attributed to a cause. See the [CAMixerSR run record](docs/CAMixerSR-short-training-plan.md). This is a single 5k short training run. Its batch size and optimization settings differ from the SAFMN runs, so the results do not support a fair ranking of the two architectures.
-
-The SAFMN run stopped at 30k because its EMA validation PSNR improved by only 0.0476 dB from 20k to 30k and met the preselected short-run stopping rule. The ordinary 30k weights remain 0.2714 dB below the author's pretrained weights on the same DIV2K protocol. **This is a controlled short training experiment, not a claim to have completed the authors' 500k-step training or matched their paper results.** The 500k learning-rate schedule was retained, so the 30k result should not be interpreted as a fully converged short-schedule model.
-
-An [independent direct test](results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) that explicitly loaded `params_ema` reproduced the 30k training validation score of 28.7915 dB on the same 100-image protocol.
-
-In the single 5k loss ablation, disabling the 0.05-weight FFT loss gave **0.4500 dB lower** DIV2K val100 RGB PSNR than the otherwise matched 5k run. See the [no-FFT training log](results/logs/nofft5000.stdout.log) and [experiment notes](docs/experiment-notes.md). This one short run does not establish the effect after full 500k-step training.
-
-The Set5 files came from a third-party mirror and include only five test images. Set5 Y-channel scores and DIV2K RGB scores are different protocols; compare values only within their own column. See [all recorded metrics](results/metrics.csv) and the [experiment notes](docs/experiment-notes.md).
-
-## Repository layout
-
-```text
-configs/          Training and evaluation YAMLs used in the cloud experiment
-scripts/          Data preparation, environment setup, preflight, training manager, evaluation
-learning/         Local CPU exercises and curated inference examples
-results/metrics.csv
-results/logs/     Selected raw logs supporting the table above
-results/safmn_fft_pair_30k/  Paired-run evidence, metrics, curves, predictions
-docs/             Data provenance, run steps, and interpretation notes
-```
-
-The YAML files intentionally preserve the absolute paths used in my cloud run (`/root/fsas/sr-repro`). Change the `dataroot_*`, `meta_info_file`, and checkpoint paths for a new machine. The stop guard also records the original process ID and paths; treat it as an experiment artifact and adapt it before another run.
-
-## Data and code provenance
-
-- [SAFMN](https://github.com/sunny2109/SAFMN) at `1a412066e927da640bc7e2a53ea60f9ffc134241` supplied the model and BasicSR-based training pipeline.
-- [CAMixerSR](https://github.com/icandle/CAMixerSR) at `d690b12bb2a0a185dc0049538b377d569f520497` supplied the second network, its BasicSR-based CAModel training extension, and pretrained weights. The local compatibility changes and 5k training setup are documented in the [CAMixerSR run record](docs/CAMixerSR-short-training-plan.md).
-- [BasicSR](https://github.com/XPixelGroup/BasicSR) at `8d56e3a045f9fb3e1d8872f92ee4a4f07f886b0a` was studied separately; SAFMN contains its own BasicSR-based code.
-- [DIV2K](https://data.vision.ee.ethz.ch/cvl/DIV2K/) and [Flickr2K](https://cv.snu.ac.kr/research/EDSR/) supplied the training images. The DIV2K page describes academic research use and requests citation. Dataset images and archives are not included here.
-- The Set5 evaluation used a [third-party dataset mirror](https://huggingface.co/datasets/eugenesiow/Set5), so these scores are recorded as local protocol checks rather than official benchmark claims.
-
-Training datasets, upstream source trees, environments, and model weights are not committed. Selected Set5 predictions and comparison figures are included as experimental illustrations, with their origin recorded in [third-party attribution](THIRD_PARTY.md). The earlier 30k model and optimizer state remain outside this public repository; their hashes and validation evidence are documented in [experiment notes](docs/experiment-notes.md).
-
-For hands-on study, start with the [local learning guide](learning/README.md) and its [curated CPU inference examples](learning/examples/README.md). Cloud setup and manager scripts preserve the original directory layout and prerequisites; they are run records and adaptable tools, not a one-command clean-machine installer.
-
-See [third-party attribution](THIRD_PARTY.md) for the origin of model code, configuration formats, and data.
-
-## Running the data pipeline
-
-The following commands show the order of the scripts. Clone SAFMN into `./SAFMN` at the pinned commit and create a project-local Python environment with the upstream dependencies first. Plan for substantial cloud storage; the recorded 100 GB data disk held the source images and prepared crops.
-
-```bash
-python scripts/data/download_training_data.py datasets/_archives
-python scripts/data/extract_training_data.py datasets
-python scripts/data/prepare_df2k_pairs.py datasets
-python scripts/data/prepare_safmn_subimages.py datasets
-python scripts/data/build_meta_info.py datasets/DF2K --expected-count 139995
-```
-
-The last two scripts create aligned crops and `datasets/DF2K/meta_info_HR_sub.txt`, checking that names and dimensions match. This metadata-index command packages the manual check used in the original cloud run into a reusable step. Set the paths in `configs/safmn/train/SAFMN_train_DF2K_x4_sub_first5000.yml`, run it from the SAFMN checkout, and use `configs/safmn/train/SAFMN_train_DF2K_x4_sub_cloud.yml` with BasicSR's `--auto_resume` to continue. See the [experiment notes](docs/experiment-notes.md) for the exact stages and caveats.
+仓库公开工具、配置、测量证据及精选图。数据集、环境和二进制权重单独存放；网络原作者、数据来源与许可见 [第三方说明](THIRD_PARTY.md)。
