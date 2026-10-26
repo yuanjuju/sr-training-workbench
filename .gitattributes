@@ -1,2 +1,6 @@
 # Preserve raw BasicSR logs, including their original trailing whitespace.
-results/logs/* -whitespace
+results/logs/* -text -whitespace
+results/safmn_fft_pair_30k/*.log -text -whitespace
+# Preserve CSV bytes for recorded SHA-256 values and patch context lines.
+results/safmn_fft_pair_30k/results/*.csv -text -whitespace
+patches/*.patch -whitespace

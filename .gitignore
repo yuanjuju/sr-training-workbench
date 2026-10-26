@@ -19,6 +19,14 @@ __pycache__/
 *.png
 .DS_Store
 
+# Curated experiment visuals are public; local exercise outputs remain local.
+!/results/safmn_fft_pair_30k/results/**/*.png
+!/learning/examples/**/*.png
+/learning/outputs/
+
+# Full upstream compatibility backups stay local; publish the small patch.
+/results/safmn_fft_pair_30k/originals/
+
 # Experiment output stays outside version control unless curated in results/.
 /experiments/
 /training_states/

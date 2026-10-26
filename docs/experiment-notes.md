@@ -40,10 +40,40 @@ The experiment-specific [`stop_safmn_at_50000.py`](../scripts/stop_safmn_at_5000
 
 SAFMN's training validation calls `SRModel.test()`, which selects `net_g_ema` when it exists. A direct test config loads `params` unless configured otherwise. Thus the training EMA score 28.7915 dB and the direct 30k ordinary-weight score 28.6901 dB answer different questions. For a matching weight-key comparison with the author's pretrained `params`, use 28.6901 versus 28.9615 dB on the same 100 DIV2K images, RGB PSNR, border crop 4.
 
-The 30k Set5 result for ordinary weights was 31.7874 dB PSNR / 0.8895 SSIM on the Y channel. The author's pretrained SAFMN weights scored 32.1836 / 0.8948 with the same five-image mirror and protocol. This small dataset does not establish general performance. CAMixerSR's pretrained Set5 test is a separate model check and does not show that its architecture was trained in this repository.
+The 30k Set5 result for ordinary weights was 31.7874 dB PSNR / 0.8895 SSIM on the Y channel. The author's pretrained SAFMN weights scored 32.1836 / 0.8948 with the same five-image mirror and protocol. This small dataset does not establish general performance. CAMixerSR's pretrained Set5 test is a separate model check; its subsequent from-scratch short training is documented below.
 
 An independent retest of the 30k EMA weights used [`SAFMN_DIV2K_val100_30000_ema.yml`](../configs/SAFMN_DIV2K_val100_30000_ema.yml). It differs from the ordinary-weight test configuration only in the experiment name and `path.param_key_g: params_ema`. BasicSR's direct test defaults to `params` when this key is absent. On the same 100 DIV2K validation images and RGB PSNR protocol, the direct EMA test returned **28.7915 dB**, matching the training-loop EMA validation to four decimal places. The [direct test log](../results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) records the image count, loaded parameter key, and score. Adjust the cloud paths before using this configuration on another machine.
 
 The first direct invocation found the installed BasicSR package and failed before network creation because that registry lacked SAFMN. The successful command set `PYTHONPATH=/root/fsas/sr-repro/SAFMN` so Python imported the BasicSR code bundled with SAFMN. This import path matters when the environment also has BasicSR installed separately.
 
 Stopping at 30k was a time-budget decision informed by the validation trend. The original scheduler still had a 500k period and the full author training target was not reached.
+
+## CAMixerSR from-scratch 5k training — 2026-10-22
+
+The CAMixerSR run completed 5,000 optimizer updates on one RTX 5090, using the existing 139,995 paired DF2K crops, random HR/LR patches of 256×256 / 64×64, batch size 16, and seed 10. The project-local environment used Python 3.10.12, PyTorch 2.7.1+cu128, torchvision 0.22.1+cu128, and BasicSR 1.4.2. Full environment versions are saved in [`camixersr_5090_environment.txt`](../results/camixersr_5090_environment.txt).
+
+The [active configuration](../configs/CAMixerSR_train_DF2K_x4_cloud_5000.yml) uses the author's `CAModel` training class, L1 plus the routing constraint, AdamW (learning rate 0.0005, weight decay 0.0001, betas 0.9/0.99), and EMA decay 0.999. The original long-schedule milestones remain beyond this short run, so the learning rate did not decay. The original 1,000-step plan was superseded by this 5,000-step configuration before formal training began. Project registration and the missing network ratio attribute were fixed with the saved [training entry patch](../patches/CAMixerSR_training_entry.patch); the setup and compatibility changes are described in the [training plan](CAMixerSR-short-training-plan.md).
+
+Every 1,000 updates, the run saved the network and optimizer/scheduler state and evaluated the EMA network on all 100 DIV2K validation pairs. The protocol is RGB PSNR with a four-pixel border crop.
+
+| Optimizer updates | Scheduled EMA validation PSNR (dB) |
+| --- | ---: |
+| 1,000 | 17.3931 |
+| 2,000 | 22.1289 |
+| 3,000 | 25.4935 |
+| 4,000 | 26.8954 |
+| 5,000 | **27.5543** |
+
+The training script calls validation again after its training loop and latest-model save. That additional evaluation logged **27.5540 dB**, a difference of 0.0003 dB. Both values are retained separately; the scheduled 5,000-update score is the primary result. The extra validation did not perform another optimizer update. The small difference has not been isolated to a specific cause. See the [complete training log](../results/logs/camixersr5000.stdout.log) and [machine-readable result](../results/camixersr5000.result.json).
+
+The log reports a training-loop duration of 35 minutes 46 seconds; the additional final validation finished at 20:28:39 Asia/Shanghai. No traceback or non-finite logged loss was found. At 20:29–20:30, the original training process (PID 276) no longer existed and `nvidia-smi` reported no GPU compute processes. The recurring monitor was paused after verification.
+
+The [checkpoint verification record](../results/camixersr5000.checkpoint_verification.json) confirms that `net_g_5000.pth` and `5000.state` loaded successfully with the training environment. The state reports iteration 5000 and contains one optimizer and one scheduler. The checkpoint contains both `params` and `params_ema`, each with 718 tensors and 765,322 elements; all values are finite. All five scheduled model/state pairs were present. The binary files remain on the cloud shared disk and are excluded from this repository.
+
+| Cloud file | SHA-256 |
+| --- | --- |
+| `net_g_5000.pth` | `3f44eed645ae11c14c4af0b12091a359031d141cef74a129e1d761b3fe4d6f63` |
+| `5000.state` | `41489c0e90b4ef9b3eb6de12a38e674fbae7a82728a74c93b175bdc079a4d893` |
+| Active training YAML | `32ada9a33c571a0df521c5ca66e4f50eb94d03a019fefe1088ece60a70ba36d4` |
+
+This is one 5,000-step short training run, not the author's full training or a fair network ranking against SAFMN. The batch size, optimizer, losses, learning-rate schedule, and hardware differ from the earlier SAFMN experiments. The result verifies CAMixerSR's data, training, checkpoint, and EMA validation path through BasicSR; it does not establish a controlled architecture comparison. Ending the process releases the GPU workload, but the cloud instance must be stopped separately in the provider's console to stop instance billing.

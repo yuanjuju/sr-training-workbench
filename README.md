@@ -8,10 +8,27 @@ This repository contains the experiment tooling and measurements I developed whi
 
 - Resumable, range-based downloads of the DIV2K and Flickr2K archives, with size checks and SHA-256 records.
 - HR/LR pair validation, ×4 dimension checks, a combined DF2K index, resumable subimage preparation, and a checked BasicSR metadata index.
-- A cloud training setup with saved checkpoints every 5,000 steps and a run-specific stop guard that checks both the checkpoint and validation score before stopping.
+- Cloud training setups with saved checkpoints every 5,000 steps for SAFMN and every 1,000 steps for CAMixerSR, plus a SAFMN stop guard that checks both the checkpoint and validation score before stopping.
 - Evaluation records that keep dataset, color channel, crop border, and checkpoint key (`params` versus `params_ema`) explicit.
+- A sequential FFT/no-FFT experiment manager with shared initialization, checkpoint verification, paired evaluation, and result plots.
+- Local CPU exercises for a parameter update and real-image inference, with curated visual examples.
 
-## Experiment snapshot
+## Latest controlled experiment: FFT loss at 30k
+
+Two fresh SAFMN ×4 runs used the same RTX 5090, environment, DF2K crops, batch 64, seed 10, and shared random initial weights. The only training difference was **L1 + 0.05 FFTLoss versus L1 alone**. Each run completed 30,000 updates, retaining the original 500k cosine schedule and EMA 0.999.
+
+| Loss | DIV2K val100 RGB PSNR | Set5 RGB PSNR | Set5 Y PSNR / SSIM |
+| --- | ---: | ---: | ---: |
+| L1 + 0.05 FFTLoss | **28.7956 dB** | **30.0542 dB** | **31.9488 dB / 0.891679** |
+| L1 | 28.7050 dB | 29.9539 dB | 31.8489 dB / 0.889826 |
+
+All values use `params_ema` and border crop 4. Set5 values are five-image means. The DIV2K advantage narrowed from **+0.4089 dB at 5k to +0.0906 dB at 30k**. This supports an FFT benefit in this single-seed short run; it does not establish convergence, multi-seed stability, or full-paper results.
+
+![Matched FFT/no-FFT validation curves](results/safmn_fft_pair_30k/results/training_curve.png)
+
+See the [complete experiment record](docs/SAFMN-FFT-paired-30k.md), [validation CSV](results/safmn_fft_pair_30k/results/training_metrics.csv), and [visual comparisons](results/safmn_fft_pair_30k/results/comparisons). All 12 checkpoint/state pairs passed readability, finite-value, iteration, and hash checks; the records are included, while binary weights remain outside Git.
+
+## Earlier training and pipeline checks
 
 | Item | Setting |
 | --- | --- |
@@ -21,10 +38,13 @@ This repository contains the experiment tooling and measurements I developed whi
 | Validation | DIV2K validation set, 100 images; RGB PSNR, border crop 4 |
 | Additional check | Set5 mirror, 5 images; Y-channel PSNR/SSIM, border crop 4 |
 | Main training run | SAFMN, batch 64, 256-pixel HR random crops, L1 + 0.05 FFT loss |
-| Loss ablation | Same 5k setup and seed, with FFT loss disabled (`fft_opt: ~`) |
-| Hardware | One RTX 4090 24 GB; Python 3.10; PyTorch 2.1.1+cu121 |
+| Earlier loss ablation | Same 5k setup and seed, with FFT loss disabled (`fft_opt: ~`); distinct from the new 5090 paired experiment above |
+| SAFMN hardware/environment | One RTX 4090 24 GB; Python 3.10; PyTorch 2.1.1+cu121 |
+| CAMixerSR short training | 5,000 steps from scratch; batch 16; 256-pixel HR random crops; L1 + routing constraint; seed 10; EMA 0.999 |
+| CAMixerSR optimization | AdamW; learning rate 0.0005; weight decay 0.0001; betas (0.9, 0.99) |
+| CAMixerSR hardware/environment | One RTX 5090 32 GB; project-local environment; PyTorch 2.7.1+cu128; BasicSR 1.4.2 |
 
-### Measured results
+### Earlier measured results
 
 | Model/checkpoint | Weights used | DIV2K val100 RGB PSNR | Set5 Y PSNR / SSIM |
 | --- | --- | ---: | ---: |
@@ -35,6 +55,11 @@ This repository contains the experiment tooling and measurements I developed whi
 | SAFMN trained from scratch, 30k | `params_ema` | 28.7915 dB | — |
 | SAFMN trained from scratch, 30k | `params` | 28.6901 dB | 31.7874 dB / 0.8895 |
 | CAMixerSR author's pretrained ×4 | `params_ema` | — | 32.5533 dB / 0.8997 |
+| CAMixerSR trained from scratch, 5k | `params_ema` | 27.5543 dB | — |
+
+The CAMixerSR run completed 5k without reported errors. EMA validation at 1k/2k/3k/4k/5k returned **17.3931 / 22.1289 / 25.4935 / 26.8954 / 27.5543 dB**. The saved 5k model and training state loaded successfully; the state records iteration 5000, the model contains finite `params` and `params_ema`, the training process exited, and the GPU compute-process list is empty.
+
+The training entry point calls validation once more after the loop; that additional validation returned 27.5540 dB without further training. Both values are retained separately, with 27.5543 dB as the 5k checkpoint validation result. The 0.0003 dB difference has not been strictly attributed to a cause. See the [CAMixerSR run record](docs/CAMixerSR-short-training-plan.md). This is a single 5k short training run. Its batch size and optimization settings differ from the SAFMN runs, so the results do not support a fair ranking of the two architectures.
 
 The SAFMN run stopped at 30k because its EMA validation PSNR improved by only 0.0476 dB from 20k to 30k and met the preselected short-run stopping rule. The ordinary 30k weights remain 0.2714 dB below the author's pretrained weights on the same DIV2K protocol. **This is a controlled short training experiment, not a claim to have completed the authors' 500k-step training or matched their paper results.** The 500k learning-rate schedule was retained, so the 30k result should not be interpreted as a fully converged short-schedule model.
 
@@ -48,9 +73,11 @@ The Set5 files came from a third-party mirror and include only five test images.
 
 ```text
 configs/          Training and evaluation YAMLs used in the cloud experiment
-scripts/          Data preparation and the run-specific stop guard
+scripts/          Data preparation, environment setup, preflight, training manager, evaluation
+learning/         Local CPU exercises and curated inference examples
 results/metrics.csv
 results/logs/     Selected raw logs supporting the table above
+results/safmn_fft_pair_30k/  Paired-run evidence, metrics, curves, predictions
 docs/             Data provenance, run steps, and interpretation notes
 ```
 
@@ -59,12 +86,14 @@ The YAML files intentionally preserve the absolute paths used in my cloud run (`
 ## Data and code provenance
 
 - [SAFMN](https://github.com/sunny2109/SAFMN) at `1a412066e927da640bc7e2a53ea60f9ffc134241` supplied the model and BasicSR-based training pipeline.
-- [CAMixerSR](https://github.com/icandle/CAMixerSR) at `d690b12bb2a0a185dc0049538b377d569f520497` supplied the second model for pretrained inference.
+- [CAMixerSR](https://github.com/icandle/CAMixerSR) at `d690b12bb2a0a185dc0049538b377d569f520497` supplied the second network, its BasicSR-based CAModel training extension, and pretrained weights. The local compatibility changes and 5k training setup are documented in the [CAMixerSR run record](docs/CAMixerSR-short-training-plan.md).
 - [BasicSR](https://github.com/XPixelGroup/BasicSR) at `8d56e3a045f9fb3e1d8872f92ee4a4f07f886b0a` was studied separately; SAFMN contains its own BasicSR-based code.
 - [DIV2K](https://data.vision.ee.ethz.ch/cvl/DIV2K/) and [Flickr2K](https://cv.snu.ac.kr/research/EDSR/) supplied the training images. The DIV2K page describes academic research use and requests citation. Dataset images and archives are not included here.
 - The Set5 evaluation used a [third-party dataset mirror](https://huggingface.co/datasets/eugenesiow/Set5), so these scores are recorded as local protocol checks rather than official benchmark claims.
 
-The training data, upstream source trees, upstream pretrained weights, and generated image examples are not committed. The 30k model and optimizer state are retained outside this public repository; their hashes and validation evidence are documented in [experiment notes](docs/experiment-notes.md).
+Training datasets, upstream source trees, environments, and model weights are not committed. Selected Set5 predictions and comparison figures are included as experimental illustrations, with their origin recorded in [third-party attribution](THIRD_PARTY.md). The earlier 30k model and optimizer state remain outside this public repository; their hashes and validation evidence are documented in [experiment notes](docs/experiment-notes.md).
+
+For hands-on study, start with the [local learning guide](learning/README.md) and its [curated CPU inference examples](learning/examples/README.md). Cloud setup and manager scripts preserve the original directory layout and prerequisites; they are run records and adaptable tools, not a one-command clean-machine installer.
 
 See [third-party attribution](THIRD_PARTY.md) for the origin of model code, configuration formats, and data.
 
