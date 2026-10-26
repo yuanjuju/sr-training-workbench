@@ -2,7 +2,7 @@
 
 ## Data pipeline
 
-1. Downloaded the official DIV2K HR/LR ×4 train and validation archives and Flickr2K archive using `scripts/download_training_data.py`. The downloader uses two concurrent HTTP range workers, retries, validates the server's `Content-Range`, and records SHA-256. The observed hashes are in [`dataset_sha256.txt`](../results/dataset_sha256.txt).
+1. Downloaded the official DIV2K HR/LR ×4 train and validation archives and Flickr2K archive using `scripts/data/download_training_data.py`. The downloader uses two concurrent HTTP range workers, retries, validates the server's `Content-Range`, and records SHA-256. The observed hashes are in [`dataset_sha256.txt`](../results/dataset_sha256.txt).
 2. Extracted only the images needed for ×4 bicubic super-resolution. Checked the PNG headers, image count, and exact ×4 dimensions for 800 DIV2K training pairs, 2,650 Flickr2K pairs, and 100 DIV2K validation pairs.
 3. Used the upstream SAFMN crop worker to create aligned 480×480 HR and 120×120 LR crops with strides 240/60. The recorded run produced 139,995 pairs. A BasicSR metadata index was generated after confirming HR/LR filenames matched, avoiding slow folder-pair enumeration at startup.
 
@@ -20,7 +20,7 @@ The cloud run used a project-local `.venv`, one RTX 4090, and the SAFMN reposito
 | 5k without FFT loss | Single loss ablation against the 5k stage | DIV2K val100 RGB PSNR 27.7030 dB (EMA) |
 | Resume from `5000.state` | Continue the same experiment | 30k EMA PSNR 28.7915 dB; stopped after checkpoint and validation |
 
-The [no-FFT configuration](../configs/SAFMN_train_DF2K_x4_sub_nofft_5000.yml) differs from the first 5k configuration only in the experiment name and disabling `fft_opt`; the random seed, data, batch size, network, optimizer, and 500k-period learning-rate schedule match. Both runs stopped at 5k and used EMA validation on DIV2K val100 with RGB PSNR and a four-pixel border crop. The [no-FFT log](../results/logs/nofft5000.stdout.log) reports 27.7030 dB at iteration 5000, **0.4500 dB below** the 28.1530 dB FFT-loss run. Its process exited normally after training and final validation. The `net_g_5000.pth` checkpoint loaded with both `params` and `params_ema`; `5000.state` loaded with iteration 5000. This is one short run per setting, not evidence for a full 500k-step conclusion or a statistically reliable effect.
+The [no-FFT configuration](../configs/safmn/train/SAFMN_train_DF2K_x4_sub_nofft_5000.yml) differs from the first 5k configuration only in the experiment name and disabling `fft_opt`; the random seed, data, batch size, network, optimizer, and 500k-period learning-rate schedule match. Both runs stopped at 5k and used EMA validation on DIV2K val100 with RGB PSNR and a four-pixel border crop. The [no-FFT log](../results/logs/nofft5000.stdout.log) reports 27.7030 dB at iteration 5000, **0.4500 dB below** the 28.1530 dB FFT-loss run. Its process exited normally after training and final validation. The `net_g_5000.pth` checkpoint loaded with both `params` and `params_ema`; `5000.state` loaded with iteration 5000. This is one short run per setting, not evidence for a full 500k-step conclusion or a statistically reliable effect.
 
 | No-FFT 5k cloud file (kept outside this repository) | SHA-256 |
 | --- | --- |
@@ -34,7 +34,7 @@ The resume log is [`full500k_resume.stdout.log`](../results/logs/full500k_resume
 | `net_g_30000.pth` | `c8f372864a1479fb555d1f2a4793b31ce5d1e6a55741ca2393b37606dc0370f3` |
 | `30000.state` | `d35fabbd2c8108ce62b3c0c68a4835294e1027a0121cff469c0c050f5014ebbe` |
 
-The experiment-specific [`stop_safmn_at_50000.py`](../scripts/stop_safmn_at_50000.py) observed each saved checkpoint and validation score. From 20k onward it would stop after a complete checkpoint if the EMA PSNR was within 0.20 dB of the pretrained baseline and its 10k gain was below 0.05 dB; 50k was the upper limit. It sent SIGTERM at 30k after PSNR 28.7915 dB was logged. Remaining orphan data-loader workers were stopped separately.
+The experiment-specific [`stop_safmn_at_50000.py`](../scripts/training/stop_safmn_at_50000.py) observed each saved checkpoint and validation score. From 20k onward it would stop after a complete checkpoint if the EMA PSNR was within 0.20 dB of the pretrained baseline and its 10k gain was below 0.05 dB; 50k was the upper limit. It sent SIGTERM at 30k after PSNR 28.7915 dB was logged. Remaining orphan data-loader workers were stopped separately.
 
 ## Reading the metrics correctly
 
@@ -42,7 +42,7 @@ SAFMN's training validation calls `SRModel.test()`, which selects `net_g_ema` wh
 
 The 30k Set5 result for ordinary weights was 31.7874 dB PSNR / 0.8895 SSIM on the Y channel. The author's pretrained SAFMN weights scored 32.1836 / 0.8948 with the same five-image mirror and protocol. This small dataset does not establish general performance. CAMixerSR's pretrained Set5 test is a separate model check; its subsequent from-scratch short training is documented below.
 
-An independent retest of the 30k EMA weights used [`SAFMN_DIV2K_val100_30000_ema.yml`](../configs/SAFMN_DIV2K_val100_30000_ema.yml). It differs from the ordinary-weight test configuration only in the experiment name and `path.param_key_g: params_ema`. BasicSR's direct test defaults to `params` when this key is absent. On the same 100 DIV2K validation images and RGB PSNR protocol, the direct EMA test returned **28.7915 dB**, matching the training-loop EMA validation to four decimal places. The [direct test log](../results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) records the image count, loaded parameter key, and score. Adjust the cloud paths before using this configuration on another machine.
+An independent retest of the 30k EMA weights used [`SAFMN_DIV2K_val100_30000_ema.yml`](../configs/safmn/test/SAFMN_DIV2K_val100_30000_ema.yml). It differs from the ordinary-weight test configuration only in the experiment name and `path.param_key_g: params_ema`. BasicSR's direct test defaults to `params` when this key is absent. On the same 100 DIV2K validation images and RGB PSNR protocol, the direct EMA test returned **28.7915 dB**, matching the training-loop EMA validation to four decimal places. The [direct test log](../results/logs/SAFMN_DIV2K_val100_30000_ema.stdout.log) records the image count, loaded parameter key, and score. Adjust the cloud paths before using this configuration on another machine.
 
 The first direct invocation found the installed BasicSR package and failed before network creation because that registry lacked SAFMN. The successful command set `PYTHONPATH=/root/fsas/sr-repro/SAFMN` so Python imported the BasicSR code bundled with SAFMN. This import path matters when the environment also has BasicSR installed separately.
 
@@ -52,7 +52,7 @@ Stopping at 30k was a time-budget decision informed by the validation trend. The
 
 The CAMixerSR run completed 5,000 optimizer updates on one RTX 5090, using the existing 139,995 paired DF2K crops, random HR/LR patches of 256×256 / 64×64, batch size 16, and seed 10. The project-local environment used Python 3.10.12, PyTorch 2.7.1+cu128, torchvision 0.22.1+cu128, and BasicSR 1.4.2. Full environment versions are saved in [`camixersr_5090_environment.txt`](../results/camixersr_5090_environment.txt).
 
-The [active configuration](../configs/CAMixerSR_train_DF2K_x4_cloud_5000.yml) uses the author's `CAModel` training class, L1 plus the routing constraint, AdamW (learning rate 0.0005, weight decay 0.0001, betas 0.9/0.99), and EMA decay 0.999. The original long-schedule milestones remain beyond this short run, so the learning rate did not decay. The original 1,000-step plan was superseded by this 5,000-step configuration before formal training began. Project registration and the missing network ratio attribute were fixed with the saved [training entry patch](../patches/CAMixerSR_training_entry.patch); the setup and compatibility changes are described in the [training plan](CAMixerSR-short-training-plan.md).
+The [active configuration](../configs/camixersr/train/CAMixerSR_train_DF2K_x4_cloud_5000.yml) uses the author's `CAModel` training class, L1 plus the routing constraint, AdamW (learning rate 0.0005, weight decay 0.0001, betas 0.9/0.99), and EMA decay 0.999. The original long-schedule milestones remain beyond this short run, so the learning rate did not decay. The original 1,000-step plan was superseded by this 5,000-step configuration before formal training began. Project registration and the missing network ratio attribute were fixed with the saved [training entry patch](../patches/CAMixerSR_training_entry.patch); the setup and compatibility changes are described in the [training plan](CAMixerSR-short-training-plan.md).
 
 Every 1,000 updates, the run saved the network and optimizer/scheduler state and evaluated the EMA network on all 100 DIV2K validation pairs. The protocol is RGB PSNR with a four-pixel border crop.
 

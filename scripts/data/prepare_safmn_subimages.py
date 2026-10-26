@@ -1,7 +1,7 @@
 """Make SAFMN's 480/120-pixel, stride-240/60 DF2K x4 training crops.
 
 Run from a cloud checkout containing the full official SAFMN repository:
-    python scripts/prepare_safmn_subimages.py datasets
+    python scripts/data/prepare_safmn_subimages.py datasets
 
 The project-specific .done markers make an interrupted run resumable. Source
 images remain untouched. The actual crop writer is the author's script.
@@ -12,7 +12,7 @@ from pathlib import Path
 from shutil import disk_usage
 import sys
 
-PROJECT = Path(__file__).resolve().parents[1]
+PROJECT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT / "SAFMN"))
 
 import cv2  # noqa: E402

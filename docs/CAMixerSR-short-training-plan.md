@@ -4,7 +4,7 @@
 启动 PID 为 276，现已退出；最终模型和训练状态可读，GPU 计算进程已释放。
 
 用户追加要求“可以多训练点”后，正式目标从初始 1000 步提高为 5000 步，
-使用 `configs/CAMixerSR_train_DF2K_x4_cloud_5000.yml`。
+使用 `configs/camixersr/train/CAMixerSR_train_DF2K_x4_cloud_5000.yml`。
 初始 1000 步配置仅保留为计划记录，不是本次正式启动配置。
 
 ## 学习目的
@@ -58,10 +58,10 @@
 Blackwell 支持依据 [PyTorch 2.7 官方发布说明](https://pytorch.org/blog/pytorch-2-7/)，
 具体 cu128 版本配对见 [官方历史安装说明](https://pytorch.org/get-started/previous-versions/#v271)。
 
-环境安装脚本为 `scripts/setup_camixersr_5090.sh`，依赖记录为 `requirements-camixersr-5090.txt`。
+环境安装脚本为 `scripts/environment/setup_camixersr_5090.sh`，依赖记录为 `requirements-camixersr-5090.txt`。
 该环境使用 headless OpenCV，并将 BasicSR 的旧版 torchvision 灰度函数导入改为当前接口。
 容器没有系统 ensurepip，脚本使用原项目的 pip 引导新环境，包安装目标仍为新环境。
-GPU 预检脚本 `scripts/preflight_camixersr_5090.py` 使用真实配对图块完成三次诊断更新及 EMA 前向；
+GPU 预检脚本 `scripts/preflight/preflight_camixersr_5090.py` 使用真实配对图块完成三次诊断更新及 EMA 前向；
 这些诊断参数会丢弃，正式 5000 步从固定种子的随机初始化重新开始。
 
 数据复用现有云盘，没有为本次训练重新下载数据。

@@ -1,6 +1,6 @@
 """Build BasicSR's HR crop index after checking every HR/LR x4 pair.
 
-Usage: python scripts/build_meta_info.py datasets/DF2K
+Usage: python scripts/data/build_meta_info.py datasets/DF2K
 """
 
 import argparse

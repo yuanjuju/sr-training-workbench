@@ -102,11 +102,11 @@ See [third-party attribution](THIRD_PARTY.md) for the origin of model code, conf
 The following commands show the order of the scripts. Clone SAFMN into `./SAFMN` at the pinned commit and create a project-local Python environment with the upstream dependencies first. Plan for substantial cloud storage; the recorded 100 GB data disk held the source images and prepared crops.
 
 ```bash
-python scripts/download_training_data.py datasets/_archives
-python scripts/extract_training_data.py datasets
-python scripts/prepare_df2k_pairs.py datasets
-python scripts/prepare_safmn_subimages.py datasets
-python scripts/build_meta_info.py datasets/DF2K --expected-count 139995
+python scripts/data/download_training_data.py datasets/_archives
+python scripts/data/extract_training_data.py datasets
+python scripts/data/prepare_df2k_pairs.py datasets
+python scripts/data/prepare_safmn_subimages.py datasets
+python scripts/data/build_meta_info.py datasets/DF2K --expected-count 139995
 ```
 
-The last two scripts create aligned crops and `datasets/DF2K/meta_info_HR_sub.txt`, checking that names and dimensions match. This metadata-index command packages the manual check used in the original cloud run into a reusable step. Set the paths in `configs/SAFMN_train_DF2K_x4_sub_first5000.yml`, run it from the SAFMN checkout, and use `configs/SAFMN_train_DF2K_x4_sub_cloud.yml` with BasicSR's `--auto_resume` to continue. See the [experiment notes](docs/experiment-notes.md) for the exact stages and caveats.
+The last two scripts create aligned crops and `datasets/DF2K/meta_info_HR_sub.txt`, checking that names and dimensions match. This metadata-index command packages the manual check used in the original cloud run into a reusable step. Set the paths in `configs/safmn/train/SAFMN_train_DF2K_x4_sub_first5000.yml`, run it from the SAFMN checkout, and use `configs/safmn/train/SAFMN_train_DF2K_x4_sub_cloud.yml` with BasicSR's `--auto_resume` to continue. See the [experiment notes](docs/experiment-notes.md) for the exact stages and caveats.
